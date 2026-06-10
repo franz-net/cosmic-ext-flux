@@ -1,3 +1,11 @@
+cosmic-ext-flux (2.0.1-1) unstable; urgency=medium
+
+  * Fix postinst systemd handoff under sudo: use systemctl --global enable
+    plus a runuser-based immediate stop/start of the user units, instead of
+    su without the user's session bus.
+
+ -- Franz <cosmic-flux-info@franz-net.dev>  Tue, 09 Jun 2026 23:50:00 +0000
+
 cosmic-ext-flux (2.0.0-1) unstable; urgency=medium
 
   * Rename project to cosmic-ext-flux per the COSMIC trademark policy.

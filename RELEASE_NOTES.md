@@ -4,16 +4,13 @@
 ## Highlights
 
 <!-- Replace with the key changes for this release -->
-- **Project renamed to comply with the [COSMIC trademark policy](https://github.com/pop-os/cosmic-epoch/blob/master/TRADEMARK.md)** (#5):
-  - Package: `cosmic-flux` → `cosmic-ext-flux`
-  - Binaries: `cosmic-ext-flux-daemon`, `cosmic-ext-applet-flux`
-  - App ID / D-Bus: `com.system76.*` → `io.github.franz_net.*`
-  - Display name: **Flux** — live video wallpapers for the COSMIC™ desktop
-- Installing this package automatically removes the old `cosmic-flux` package and its systemd service
-- Existing settings are migrated automatically on first start — no reconfiguration needed
-- **Auto FPS** (#4): new "Auto FPS (match source)" toggle plays the video at its native framerate — now the default for new installs; the manual slider remains as a power-saving cap and now adjusts in steps of 1 (so 24 fps is selectable)
-- **Fixed: wallpaper not restoring after login** (#2): pressing Play after a Stop now re-enables autostart, so the wallpaper comes back at the next login
-- French translation for the applet (thanks @ligenix!)
+- **Fixed: daemon not switched over when upgrading from `cosmic-flux` via sudo.** The post-install script could neither stop the old `cosmic-flux-daemon` nor enable the new unit from a sudo context (no access to the user session bus), leaving the old daemon running from a deleted binary until the next login. The service is now enabled system-wide via `systemctl --global enable`, with a best-effort immediate stop/start for the installing user.
+- If you already upgraded to v2.0.0 and hit this, either log out and back in, or run:
+  ```sh
+  systemctl --user stop cosmic-flux-daemon
+  systemctl --user enable --now cosmic-ext-flux-daemon
+  ```
+- Reminder from v2.0.0: re-add the **Flux** applet to your panel once (the App ID changed) via Settings > Desktop > Panel > Applets. See the [v2.0.0 notes](https://github.com/franz-net/cosmic-ext-flux/releases/tag/v2.0.0) for everything in the rename release.
 
 ## Install
 
