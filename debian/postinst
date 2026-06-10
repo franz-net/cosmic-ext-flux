@@ -13,17 +13,27 @@ case "$1" in
         if command -v gtk-update-icon-cache >/dev/null 2>&1; then
             gtk-update-icon-cache -f -t /usr/share/icons/hicolor || true
         fi
-        # Enable and start the daemon for the installing user
         if command -v systemctl >/dev/null 2>&1; then
-            systemctl --global daemon-reload || true
-            # If running as a logged-in user (not during image build), enable the service
-            if [ -n "$SUDO_USER" ]; then
-                # Clean up the pre-rename service if it lingers, then enable the new one
-                su - "$SUDO_USER" -c "systemctl --user disable --now cosmic-flux-daemon 2>/dev/null" || true
-                su - "$SUDO_USER" -c "systemctl --user enable --now cosmic-ext-flux-daemon" || true
-            elif [ -n "$USER" ] && [ "$USER" != "root" ]; then
-                systemctl --user disable --now cosmic-flux-daemon 2>/dev/null || true
-                systemctl --user enable --now cosmic-ext-flux-daemon || true
+            # Enable for all users; takes effect at next login and needs no
+            # user bus, so it also works during image builds.
+            systemctl --global enable cosmic-ext-flux-daemon || true
+
+            # Best-effort immediate handoff for the installing user.
+            # systemctl --user needs the user's runtime dir and session bus,
+            # which sudo/su do not provide — point at them explicitly.
+            uid="${SUDO_UID:-$PKEXEC_UID}"
+            if [ -n "$uid" ] && [ -d "/run/user/$uid" ] && command -v runuser >/dev/null 2>&1; then
+                user_systemctl() {
+                    runuser -u "$(id -nu "$uid")" -- env \
+                        XDG_RUNTIME_DIR="/run/user/$uid" \
+                        DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" \
+                        systemctl --user "$@" 2>/dev/null || true
+                }
+                user_systemctl daemon-reload
+                # Stop the pre-rename daemon if it is still running
+                user_systemctl stop cosmic-flux-daemon
+                user_systemctl disable cosmic-flux-daemon
+                user_systemctl start cosmic-ext-flux-daemon
             fi
         fi
         ;;
