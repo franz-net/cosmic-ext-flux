@@ -14,8 +14,13 @@ use tracing_subscriber::EnvFilter;
 use wayland::{Command, DaemonState};
 
 fn main() -> Result<()> {
+    // Default to info-level logging so the systemd journal captures daemon
+    // lifecycle events (startup, output config, auto-pause) without needing
+    // RUST_LOG set; RUST_LOG still overrides when present.
     tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+        )
         .init();
 
     tracing::info!("Starting cosmic-ext-flux-daemon");
