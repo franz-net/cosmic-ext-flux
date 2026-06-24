@@ -25,6 +25,7 @@ pub enum Message {
     SetSpanMode(bool),
     SetFpsCap(u32),
     SetFpsAuto(bool),
+    SetPauseOnFullscreen(bool),
     UpdateConfig(Config),
     DaemonState { playing: bool, error: Option<String>, cpu: f64, memory: f64, fps: f64, source_fps: f64 },
     CommandSent,
@@ -213,6 +214,14 @@ impl cosmic::Application for AppModel {
                 .on_toggle(Message::SetSpanMode),
         );
         content = content.add(span_row);
+
+        // Pause-on-fullscreen toggle (issue #13)
+        let fullscreen_row = widget::settings::item(
+            fl!("pause-on-fullscreen"),
+            widget::toggler(self.config.pause_on_fullscreen)
+                .on_toggle(Message::SetPauseOnFullscreen),
+        );
+        content = content.add(fullscreen_row);
 
         // Show performance stats when playing
         if self.daemon_playing {
@@ -425,6 +434,14 @@ impl cosmic::Application for AppModel {
                     |_| cosmic::Action::App(Message::CommandSent),
                 );
             }
+            Message::SetPauseOnFullscreen(enabled) => {
+                self.config.pause_on_fullscreen = enabled;
+                self.save_config();
+                return Task::perform(
+                    send_command(DaemonCommand::SetPauseOnFullscreen(enabled)),
+                    |_| cosmic::Action::App(Message::CommandSent),
+                );
+            }
         }
         Task::none()
     }
@@ -489,6 +506,7 @@ enum DaemonCommand {
     SetFitMode(String),
     SetSpanMode(bool),
     SetFpsCap(u32),
+    SetPauseOnFullscreen(bool),
 }
 
 async fn send_command(cmd: DaemonCommand) -> Result<(), anyhow::Error> {
@@ -501,6 +519,7 @@ async fn send_command(cmd: DaemonCommand) -> Result<(), anyhow::Error> {
         DaemonCommand::SetFitMode(m) => proxy.set_fit_mode(&m).await?,
         DaemonCommand::SetSpanMode(e) => proxy.set_span_mode(e).await?,
         DaemonCommand::SetFpsCap(f) => proxy.set_fps_cap(f).await?,
+        DaemonCommand::SetPauseOnFullscreen(e) => proxy.set_pause_on_fullscreen(e).await?,
     }
     Ok(())
 }

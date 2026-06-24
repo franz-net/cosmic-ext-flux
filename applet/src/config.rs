@@ -4,13 +4,14 @@ use cosmic::cosmic_config;
 use cosmic::cosmic_config::{cosmic_config_derive::CosmicConfigEntry, CosmicConfigEntry};
 
 #[derive(Debug, Clone, PartialEq, CosmicConfigEntry)]
-#[version = 3]
+#[version = 4]
 pub struct Config {
     pub source_path: String,
     pub fit_mode: String,
     pub autostart: bool,
     pub span_mode: bool,
     pub fps_cap: u32,
+    pub pause_on_fullscreen: bool,
 }
 
 impl Default for Config {
@@ -21,6 +22,7 @@ impl Default for Config {
             autostart: false,
             span_mode: false,
             fps_cap: 0, // 0 = follow source framerate
+            pause_on_fullscreen: true, // pause when an app is fullscreen (issue #13)
         }
     }
 }

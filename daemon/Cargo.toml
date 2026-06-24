@@ -16,6 +16,11 @@ smithay-client-toolkit = { version = "0.20", default-features = false, features 
 ] }
 wayland-client = "0.31"
 
+# Toplevel-info protocol client for detecting fullscreen apps (issue #13).
+# Pinned to the same rev libcosmic resolves, so the whole tree shares one
+# wayland-client/sctk and there is no version clash with the deps above.
+cosmic-client-toolkit = { git = "https://github.com/pop-os/cosmic-protocols", rev = "d0e95be" }
+
 gstreamer = "0.23"
 gstreamer-app = "0.23"
 

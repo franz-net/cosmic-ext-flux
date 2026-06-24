@@ -1055,6 +1055,7 @@ name = "cosmic-ext-flux-daemon"
 version = "2.0.1"
 dependencies = [
  "anyhow",
+ "cosmic-client-toolkit",
  "gstreamer",
  "gstreamer-app",
  "libc",

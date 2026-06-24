@@ -11,6 +11,7 @@ fit-zoom = Zoom (recadrer pour remplir)
 fit-fit = Ajuster (format 4/3)
 fit-stretch = Étirer
 span-mode = S'étendre sur deux écrans
+pause-on-fullscreen = Mettre en pause si une application est en plein écran
 fps-cap = Limite d'images par seconde
 fps-auto = FPS auto (suivre la source)
 error = Erreur

@@ -11,6 +11,7 @@ fit-zoom = Zoom (crop to fill)
 fit-fit = Fit (letterbox)
 fit-stretch = Stretch
 span-mode = Span across monitors
+pause-on-fullscreen = Pause when an app is fullscreen
 fps-cap = FPS limit
 fps-auto = Auto FPS (match source)
 error = Error
