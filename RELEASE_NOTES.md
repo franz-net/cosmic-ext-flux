@@ -3,14 +3,11 @@
 
 ## Highlights
 
-<!-- Replace with the key changes for this release -->
-- **Fixed: daemon not switched over when upgrading from `cosmic-flux` via sudo.** The post-install script could neither stop the old `cosmic-flux-daemon` nor enable the new unit from a sudo context (no access to the user session bus), leaving the old daemon running from a deleted binary until the next login. The service is now enabled system-wide via `systemctl --global enable`, with a best-effort immediate stop/start for the installing user.
-- If you already upgraded to v2.0.0 and hit this, either log out and back in, or run:
-  ```sh
-  systemctl --user stop cosmic-flux-daemon
-  systemctl --user enable --now cosmic-ext-flux-daemon
-  ```
-- Reminder from v2.0.0: re-add the **Flux** applet to your panel once (the App ID changed) via Settings > Desktop > Panel > Applets. See the [v2.0.0 notes](https://github.com/franz-net/cosmic-ext-flux/releases/tag/v2.0.0) for everything in the rename release.
+- **New: automatically pause when an app goes fullscreen.** Flux draws behind your windows, so while an app is fullscreen the wallpaper is fully hidden — Flux now stops decoding it, dropping daemon CPU to ~0% (measured 11% → 0% on a 60 fps source) and saving power, then resumes the instant you leave fullscreen. On by default; toggle **"Pause when an app is fullscreen"** in the applet popup. (#13)
+- **Optional: also pause when a window is maximized.** Off by default — enable **"Also pause when an app is maximized"** in the applet if you'd rather the wallpaper stop whenever a window covers the screen. A manual pause always takes precedence: leaving fullscreen will never override a pause you set yourself.
+- **The daemon now logs to the systemd journal by default** (`journalctl --user -u cosmic-ext-flux-daemon`), making problems easier to diagnose. Set `RUST_LOG` to change the level.
+
+No need to re-add the applet this time — the App ID is unchanged since v2.0.0, and your settings migrate automatically.
 
 ## Install
 
