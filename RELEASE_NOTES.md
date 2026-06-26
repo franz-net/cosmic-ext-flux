@@ -3,11 +3,10 @@
 
 ## Highlights
 
-- **New: automatically pause when an app goes fullscreen.** Flux draws behind your windows, so while an app is fullscreen the wallpaper is fully hidden — Flux now stops decoding it, dropping daemon CPU to ~0% (measured 11% → 0% on a 60 fps source) and saving power, then resumes the instant you leave fullscreen. On by default; toggle **"Pause when an app is fullscreen"** in the applet popup. (#13)
-- **Optional: also pause when a window is maximized.** Off by default — enable **"Also pause when an app is maximized"** in the applet if you'd rather the wallpaper stop whenever a window covers the screen. A manual pause always takes precedence: leaving fullscreen will never override a pause you set yourself.
-- **The daemon now logs to the systemd journal by default** (`journalctl --user -u cosmic-ext-flux-daemon`), making problems easier to diagnose. Set `RUST_LOG` to change the level.
+- **New: optionally pause on battery power.** Save laptop battery by automatically pausing the wallpaper while you're on battery, resuming when you plug back in. **Opt-in** — enable **"Pause on battery power"** in the applet popup (off by default). The daemon reads the on-battery state from UPower; on systems without UPower it simply does nothing. (#1)
+- **Fixed: applet could crash when opening its popup.** The added setting pushed the popup past its height limit and tripped a Wayland surface error; the popup now fits all its rows.
 
-No need to re-add the applet this time — the App ID is unchanged since v2.0.0, and your settings migrate automatically.
+Both auto-pause conditions from v3.0 (a fullscreen/maximized window, and now on-battery) share one rule: a manual pause always wins, and the wallpaper only plays when you want it to and nothing is asking it to pause.
 
 ## Install
 

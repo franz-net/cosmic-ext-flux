@@ -1,3 +1,15 @@
+cosmic-ext-flux (3.1.0-1) unstable; urgency=medium
+
+  * Optionally pause playback while on battery power (issue #1): an opt-in
+    toggle in the applet, off by default. The daemon reads the on-battery
+    state from UPower on the system bus and pauses/resumes accordingly,
+    degrading gracefully where UPower is unavailable.
+  * Fix the applet crashing when its popup is opened: the added settings row
+    pushed the popup past its height limit, tripping an xdg_surface protocol
+    error. The popup height ceiling was raised so all rows fit.
+
+ -- Franz <cosmic-flux-info@franz-net.dev>  Fri, 26 Jun 2026 12:00:00 +0000
+
 cosmic-ext-flux (3.0.0-1) unstable; urgency=medium
 
   * Automatically pause playback when an app is fullscreen (issue #13):
