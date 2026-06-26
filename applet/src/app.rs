@@ -314,7 +314,10 @@ impl cosmic::Application for AppModel {
                         .max_width(372.0)
                         .min_width(300.0)
                         .min_height(200.0)
-                        .max_height(600.0);
+                        // Headroom for the full set of rows; a too-low ceiling
+                        // makes the popup overflow and the surface races on
+                        // configure (xdg_surface unconfigured_buffer crash).
+                        .max_height(900.0);
                     get_popup(popup_settings)
                 };
             }
