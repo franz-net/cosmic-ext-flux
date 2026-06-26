@@ -87,10 +87,12 @@ fn restore_from_config(tx: &std::sync::mpsc::SyncSender<Command>) {
         None => return,
     };
 
-    // Apply the fullscreen auto-pause preference regardless of autostart, so it
-    // takes effect even when the user starts playback manually later. Default on.
+    // Apply the auto-pause preferences regardless of autostart, so they take
+    // effect even when the user starts playback manually later.
     let pause_on_fullscreen = read_config_bool(&config_dir, "pause_on_fullscreen").unwrap_or(true);
     let _ = tx.send(Command::SetPauseOnFullscreen(pause_on_fullscreen));
+    let pause_on_maximized = read_config_bool(&config_dir, "pause_on_maximized").unwrap_or(false);
+    let _ = tx.send(Command::SetPauseOnMaximized(pause_on_maximized));
 
     let autostart = read_config_bool(&config_dir, "autostart").unwrap_or(false);
     if !autostart {

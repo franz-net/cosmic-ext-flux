@@ -12,6 +12,7 @@ pub struct Config {
     pub span_mode: bool,
     pub fps_cap: u32,
     pub pause_on_fullscreen: bool,
+    pub pause_on_maximized: bool,
 }
 
 impl Default for Config {
@@ -23,6 +24,7 @@ impl Default for Config {
             span_mode: false,
             fps_cap: 0, // 0 = follow source framerate
             pause_on_fullscreen: true, // pause when an app is fullscreen (issue #13)
+            pause_on_maximized: false, // also pause when an app is maximized (opt-in)
         }
     }
 }

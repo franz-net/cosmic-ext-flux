@@ -104,6 +104,12 @@ impl WallpaperInterface {
             .map_err(|_| zbus::fdo::Error::Failed("Command queue full".to_string()))
     }
 
+    async fn set_pause_on_maximized(&self, enabled: bool) -> zbus::fdo::Result<()> {
+        self.command_tx
+            .try_send(Command::SetPauseOnMaximized(enabled))
+            .map_err(|_| zbus::fdo::Error::Failed("Command queue full".to_string()))
+    }
+
 
     /// Returns all daemon state in a single D-Bus call: (playing, error, cpu, memory, fps, source_fps).
     async fn get_state(&self) -> (bool, String, f64, f64, f64, f64) {

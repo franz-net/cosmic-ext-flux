@@ -74,6 +74,7 @@ pub enum Command {
     SetSpanMode(bool),
     SetFpsCap(u32),
     SetPauseOnFullscreen(bool),
+    SetPauseOnMaximized(bool),
 }
 
 /// What the user last explicitly asked for. Distinct from the *effective*
@@ -91,13 +92,14 @@ enum UserIntent {
 /// through the same `reconcile_playback` path.
 #[derive(Debug, Default, Clone, Copy)]
 struct AutoPause {
-    /// A fullscreen toplevel is present (issue #13).
-    fullscreen: bool,
+    /// A fullscreen (or, if opted in, maximized) toplevel is covering the
+    /// screen (issue #13).
+    covered: bool,
 }
 
 impl AutoPause {
     fn any(&self) -> bool {
-        self.fullscreen
+        self.covered
     }
 }
 
@@ -162,6 +164,7 @@ struct WallpaperRenderer {
     user_intent: UserIntent,
     auto_pause: AutoPause,
     pause_on_fullscreen: bool,
+    pause_on_maximized: bool,
     /// Toplevel-info protocol state; `None` if the compositor doesn't expose it,
     /// in which case fullscreen detection is silently disabled.
     toplevel_info: Option<ToplevelInfoState>,
@@ -228,6 +231,7 @@ pub fn run(
         user_intent: UserIntent::Playing,
         auto_pause: AutoPause::default(),
         pause_on_fullscreen: true,
+        pause_on_maximized: false,
         toplevel_info: None,
         prev_frame: None,
         prev_decode_w: 0,
@@ -907,14 +911,12 @@ impl WallpaperRenderer {
             }
             Command::SetPauseOnFullscreen(enabled) => {
                 self.pause_on_fullscreen = enabled;
-                if enabled {
-                    // Re-evaluate current toplevels and pause if one is fullscreen.
-                    self.update_fullscreen_pause(qh);
-                } else if self.auto_pause.fullscreen {
-                    // Disabling the feature clears any active fullscreen pause.
-                    self.auto_pause.fullscreen = false;
-                    self.reconcile_playback(qh);
-                }
+                // Recompute against current toplevels (handles enable and disable).
+                self.update_window_pause(qh);
+            }
+            Command::SetPauseOnMaximized(enabled) => {
+                self.pause_on_maximized = enabled;
+                self.update_window_pause(qh);
             }
         }
     }
@@ -948,28 +950,30 @@ impl WallpaperRenderer {
         }
         if desired {
             self.request_frame(qh);
-        } else if self.auto_pause.fullscreen {
-            tracing::info!("Auto-paused: a fullscreen app is active");
+        } else if self.auto_pause.covered {
+            tracing::info!("Auto-paused: a covering window is active");
         }
     }
 
-    /// Recompute the fullscreen auto-pause reason from current toplevels and
-    /// reconcile if it changed. Global granularity for v1: any fullscreen
-    /// toplevel on any output pauses playback.
-    fn update_fullscreen_pause(&mut self, qh: &QueueHandle<Self>) {
-        if !self.pause_on_fullscreen {
-            return;
-        }
-        let any_fullscreen = self
+    /// Recompute the "covering window" auto-pause reason from current toplevels
+    /// and reconcile if it changed. Pauses on any fullscreen toplevel, plus any
+    /// maximized toplevel when that option is enabled. Global granularity for
+    /// v1: any matching toplevel on any output pauses playback.
+    fn update_window_pause(&mut self, qh: &QueueHandle<Self>) {
+        let pause_on_fullscreen = self.pause_on_fullscreen;
+        let pause_on_maximized = self.pause_on_maximized;
+        let covered = self
             .toplevel_info
             .as_ref()
             .map(|ti| {
-                ti.toplevels()
-                    .any(|t| t.state.contains(&ToplevelState::Fullscreen))
+                ti.toplevels().any(|t| {
+                    (pause_on_fullscreen && t.state.contains(&ToplevelState::Fullscreen))
+                        || (pause_on_maximized && t.state.contains(&ToplevelState::Maximized))
+                })
             })
             .unwrap_or(false);
-        if any_fullscreen != self.auto_pause.fullscreen {
-            self.auto_pause.fullscreen = any_fullscreen;
+        if covered != self.auto_pause.covered {
+            self.auto_pause.covered = covered;
             self.reconcile_playback(qh);
         }
     }
@@ -1567,7 +1571,7 @@ impl ToplevelInfoHandler for WallpaperRenderer {
         qh: &QueueHandle<Self>,
         _toplevel: &ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
     ) {
-        self.update_fullscreen_pause(qh);
+        self.update_window_pause(qh);
     }
 
     fn update_toplevel(
@@ -1576,7 +1580,7 @@ impl ToplevelInfoHandler for WallpaperRenderer {
         qh: &QueueHandle<Self>,
         _toplevel: &ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
     ) {
-        self.update_fullscreen_pause(qh);
+        self.update_window_pause(qh);
     }
 
     fn toplevel_closed(
@@ -1585,7 +1589,7 @@ impl ToplevelInfoHandler for WallpaperRenderer {
         qh: &QueueHandle<Self>,
         _toplevel: &ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
     ) {
-        self.update_fullscreen_pause(qh);
+        self.update_window_pause(qh);
     }
 }
 
