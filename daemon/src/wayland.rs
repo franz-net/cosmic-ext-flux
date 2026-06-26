@@ -980,8 +980,14 @@ impl WallpaperRenderer {
 
     /// Recompute the "covering window" auto-pause reason from current toplevels
     /// and reconcile if it changed. Pauses on any fullscreen toplevel, plus any
-    /// maximized toplevel when that option is enabled. Global granularity for
-    /// v1: any matching toplevel on any output pauses playback.
+    /// maximized toplevel when that option is enabled.
+    ///
+    /// Granularity is global by design: a match on ANY output pauses ALL
+    /// outputs. The wallpaper is a single shared decode pipeline, so a
+    /// partially-covered multi-monitor setup would keep decoding regardless —
+    /// global pause is the only behavior that actually saves CPU/battery. The
+    /// trade-off (a visible wallpaper on an uncovered monitor also freezes) is
+    /// intentional.
     fn update_window_pause(&mut self, qh: &QueueHandle<Self>) {
         let pause_on_fullscreen = self.pause_on_fullscreen;
         let pause_on_maximized = self.pause_on_maximized;
