@@ -22,6 +22,7 @@ pub trait WallpaperDaemon {
     async fn set_fps_cap(&self, fps: u32) -> zbus::Result<()>;
     async fn set_pause_on_fullscreen(&self, enabled: bool) -> zbus::Result<()>;
     async fn set_pause_on_maximized(&self, enabled: bool) -> zbus::Result<()>;
+    async fn set_pause_on_battery(&self, enabled: bool) -> zbus::Result<()>;
     /// Returns (playing, error, cpu, memory, fps, source_fps) in a single D-Bus call.
     async fn get_state(&self) -> zbus::Result<(bool, String, f64, f64, f64, f64)>;
     // Properties are defined here for proxy generation but polling code uses

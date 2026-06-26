@@ -13,6 +13,7 @@ fit-stretch = Stretch
 span-mode = Span across monitors
 pause-on-fullscreen = Pause when an app is fullscreen
 pause-on-maximized = Also pause when an app is maximized
+pause-on-battery = Pause on battery power
 fps-cap = FPS limit
 fps-auto = Auto FPS (match source)
 error = Error

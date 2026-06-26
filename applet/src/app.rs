@@ -27,6 +27,7 @@ pub enum Message {
     SetFpsAuto(bool),
     SetPauseOnFullscreen(bool),
     SetPauseOnMaximized(bool),
+    SetPauseOnBattery(bool),
     UpdateConfig(Config),
     DaemonState { playing: bool, error: Option<String>, cpu: f64, memory: f64, fps: f64, source_fps: f64 },
     CommandSent,
@@ -231,6 +232,14 @@ impl cosmic::Application for AppModel {
                 .on_toggle(Message::SetPauseOnMaximized),
         );
         content = content.add(maximized_row);
+
+        // Pause on battery power (opt-in, issue #1)
+        let battery_row = widget::settings::item(
+            fl!("pause-on-battery"),
+            widget::toggler(self.config.pause_on_battery)
+                .on_toggle(Message::SetPauseOnBattery),
+        );
+        content = content.add(battery_row);
 
         // Show performance stats when playing
         if self.daemon_playing {
@@ -459,6 +468,14 @@ impl cosmic::Application for AppModel {
                     |_| cosmic::Action::App(Message::CommandSent),
                 );
             }
+            Message::SetPauseOnBattery(enabled) => {
+                self.config.pause_on_battery = enabled;
+                self.save_config();
+                return Task::perform(
+                    send_command(DaemonCommand::SetPauseOnBattery(enabled)),
+                    |_| cosmic::Action::App(Message::CommandSent),
+                );
+            }
         }
         Task::none()
     }
@@ -525,6 +542,7 @@ enum DaemonCommand {
     SetFpsCap(u32),
     SetPauseOnFullscreen(bool),
     SetPauseOnMaximized(bool),
+    SetPauseOnBattery(bool),
 }
 
 async fn send_command(cmd: DaemonCommand) -> Result<(), anyhow::Error> {
@@ -539,6 +557,7 @@ async fn send_command(cmd: DaemonCommand) -> Result<(), anyhow::Error> {
         DaemonCommand::SetFpsCap(f) => proxy.set_fps_cap(f).await?,
         DaemonCommand::SetPauseOnFullscreen(e) => proxy.set_pause_on_fullscreen(e).await?,
         DaemonCommand::SetPauseOnMaximized(e) => proxy.set_pause_on_maximized(e).await?,
+        DaemonCommand::SetPauseOnBattery(e) => proxy.set_pause_on_battery(e).await?,
     }
     Ok(())
 }

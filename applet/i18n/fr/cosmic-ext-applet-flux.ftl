@@ -13,6 +13,7 @@ fit-stretch = Étirer
 span-mode = S'étendre sur deux écrans
 pause-on-fullscreen = Mettre en pause si une application est en plein écran
 pause-on-maximized = Mettre aussi en pause si une application est maximisée
+pause-on-battery = Mettre en pause sur batterie
 fps-cap = Limite d'images par seconde
 fps-auto = FPS auto (suivre la source)
 error = Erreur

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
+mod battery;
 mod dbus;
 mod decoder;
 mod wayland;
@@ -47,16 +48,22 @@ fn main() -> Result<()> {
     // Bounded channel prevents D-Bus flood from exhausting memory
     let (command_tx, command_rx) = std::sync::mpsc::sync_channel::<Command>(64);
 
-    // D-Bus server runs in a separate thread with a lightweight single-threaded tokio runtime
+    // D-Bus server runs in a separate thread with a lightweight single-threaded
+    // tokio runtime. The same runtime also drives the UPower battery monitor.
     let dbus_state = Arc::clone(&state);
     let dbus_tx = command_tx.clone();
+    let battery_tx = command_tx.clone();
     std::thread::spawn(move || {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .expect("tokio runtime");
-        rt.block_on(dbus::serve(dbus_state, dbus_tx))
-            .expect("D-Bus server error");
+        rt.block_on(async move {
+            tokio::spawn(battery::monitor(battery_tx));
+            if let Err(e) = dbus::serve(dbus_state, dbus_tx).await {
+                tracing::error!("D-Bus server error: {e}");
+            }
+        });
     });
 
     // One-time migration from the pre-rename App ID / cache dirs
@@ -93,6 +100,8 @@ fn restore_from_config(tx: &std::sync::mpsc::SyncSender<Command>) {
     let _ = tx.send(Command::SetPauseOnFullscreen(pause_on_fullscreen));
     let pause_on_maximized = read_config_bool(&config_dir, "pause_on_maximized").unwrap_or(false);
     let _ = tx.send(Command::SetPauseOnMaximized(pause_on_maximized));
+    let pause_on_battery = read_config_bool(&config_dir, "pause_on_battery").unwrap_or(false);
+    let _ = tx.send(Command::SetPauseOnBattery(pause_on_battery));
 
     let autostart = read_config_bool(&config_dir, "autostart").unwrap_or(false);
     if !autostart {
@@ -191,7 +200,7 @@ fn config_home() -> PathBuf {
 fn dirs_config_path() -> Option<PathBuf> {
     let config_home = config_home();
     // Try newest version first, fall back to older
-    for ver in ["v4", "v3", "v2", "v1"] {
+    for ver in ["v5", "v4", "v3", "v2", "v1"] {
         let dir = config_home.join(format!("cosmic/io.github.franz_net.CosmicExtAppletFlux/{ver}"));
         if dir.is_dir() {
             return Some(dir);

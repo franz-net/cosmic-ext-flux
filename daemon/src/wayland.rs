@@ -75,6 +75,9 @@ pub enum Command {
     SetFpsCap(u32),
     SetPauseOnFullscreen(bool),
     SetPauseOnMaximized(bool),
+    SetPauseOnBattery(bool),
+    /// Raw on-battery state from the UPower monitor (not a user setting).
+    SetOnBattery(bool),
 }
 
 /// What the user last explicitly asked for. Distinct from the *effective*
@@ -88,18 +91,18 @@ enum UserIntent {
 
 /// Reasons the daemon auto-pauses playback independently of the user's intent.
 /// Effective playback is "user wants to play AND no auto-pause reason is active".
-/// Issue #1 (pause-on-battery) will add an `on_battery` field here and feed it
-/// through the same `reconcile_playback` path.
 #[derive(Debug, Default, Clone, Copy)]
 struct AutoPause {
     /// A fullscreen (or, if opted in, maximized) toplevel is covering the
     /// screen (issue #13).
     covered: bool,
+    /// The system is on battery power and pause-on-battery is enabled (issue #1).
+    on_battery: bool,
 }
 
 impl AutoPause {
     fn any(&self) -> bool {
-        self.covered
+        self.covered || self.on_battery
     }
 }
 
@@ -165,6 +168,9 @@ struct WallpaperRenderer {
     auto_pause: AutoPause,
     pause_on_fullscreen: bool,
     pause_on_maximized: bool,
+    pause_on_battery: bool,
+    /// Raw on-battery state reported by UPower (independent of the setting).
+    system_on_battery: bool,
     /// Toplevel-info protocol state; `None` if the compositor doesn't expose it,
     /// in which case fullscreen detection is silently disabled.
     toplevel_info: Option<ToplevelInfoState>,
@@ -232,6 +238,8 @@ pub fn run(
         auto_pause: AutoPause::default(),
         pause_on_fullscreen: true,
         pause_on_maximized: false,
+        pause_on_battery: false,
+        system_on_battery: false,
         toplevel_info: None,
         prev_frame: None,
         prev_decode_w: 0,
@@ -918,6 +926,14 @@ impl WallpaperRenderer {
                 self.pause_on_maximized = enabled;
                 self.update_window_pause(qh);
             }
+            Command::SetPauseOnBattery(enabled) => {
+                self.pause_on_battery = enabled;
+                self.update_battery_pause(qh);
+            }
+            Command::SetOnBattery(on_battery) => {
+                self.system_on_battery = on_battery;
+                self.update_battery_pause(qh);
+            }
         }
     }
 
@@ -950,8 +966,15 @@ impl WallpaperRenderer {
         }
         if desired {
             self.request_frame(qh);
-        } else if self.auto_pause.covered {
-            tracing::info!("Auto-paused: a covering window is active");
+        } else if self.auto_pause.any() {
+            let mut reasons = Vec::new();
+            if self.auto_pause.covered {
+                reasons.push("a fullscreen/maximized window");
+            }
+            if self.auto_pause.on_battery {
+                reasons.push("on battery power");
+            }
+            tracing::info!("Auto-paused: {}", reasons.join(" + "));
         }
     }
 
@@ -974,6 +997,16 @@ impl WallpaperRenderer {
             .unwrap_or(false);
         if covered != self.auto_pause.covered {
             self.auto_pause.covered = covered;
+            self.reconcile_playback(qh);
+        }
+    }
+
+    /// Recompute the on-battery auto-pause reason and reconcile if it changed.
+    /// Pauses only when the system is on battery AND the setting is enabled.
+    fn update_battery_pause(&mut self, qh: &QueueHandle<Self>) {
+        let on_battery = self.pause_on_battery && self.system_on_battery;
+        if on_battery != self.auto_pause.on_battery {
+            self.auto_pause.on_battery = on_battery;
             self.reconcile_playback(qh);
         }
     }
