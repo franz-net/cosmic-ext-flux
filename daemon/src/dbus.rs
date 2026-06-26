@@ -220,3 +220,41 @@ pub async fn serve(
     std::future::pending::<()>().await;
     unreachable!()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::validate_source_path;
+
+    #[test]
+    fn rejects_nonexistent_path() {
+        assert!(validate_source_path("/no/such/flux-test-path-xyz.mp4").is_err());
+    }
+
+    #[test]
+    fn rejects_blocked_prefix() {
+        // /dev/null exists and canonicalizes, so it exercises the prefix guard
+        // (not the existence check).
+        let err = validate_source_path("/dev/null").unwrap_err();
+        assert!(err.contains("/dev/"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn rejects_directory() {
+        let dir = std::env::temp_dir().join("flux_test_dir_validate");
+        std::fs::create_dir_all(&dir).unwrap();
+        let res = validate_source_path(dir.to_str().unwrap());
+        std::fs::remove_dir_all(&dir).ok();
+        let err = res.unwrap_err();
+        assert!(err.contains("not a regular file"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn accepts_regular_file_and_canonicalizes() {
+        let path = std::env::temp_dir().join("flux_test_file_validate.bin");
+        std::fs::write(&path, b"x").unwrap();
+        let res = validate_source_path(path.to_str().unwrap());
+        std::fs::remove_file(&path).ok();
+        let canonical = res.expect("a regular file should validate");
+        assert!(canonical.ends_with("flux_test_file_validate.bin"));
+    }
+}

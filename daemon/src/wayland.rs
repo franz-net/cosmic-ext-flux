@@ -106,6 +106,13 @@ impl AutoPause {
     }
 }
 
+/// Effective playback decision: play only when the user wants to play and no
+/// auto-pause reason is active. Pure (no `self`) so the arbitration that drives
+/// the whole auto-pause feature set can be unit-tested directly.
+fn should_play(user_intent: UserIntent, auto_pause: AutoPause) -> bool {
+    user_intent == UserIntent::Playing && !auto_pause.any()
+}
+
 /// Shared readable state published by the daemon (read by D-Bus properties).
 pub struct DaemonState {
     pub source_path: String,
@@ -941,7 +948,7 @@ impl WallpaperRenderer {
 
     /// Effective playback: the user wants to play and nothing is auto-pausing.
     fn desired_playing(&self) -> bool {
-        self.user_intent == UserIntent::Playing && !self.auto_pause.any()
+        should_play(self.user_intent, self.auto_pause)
     }
 
     /// Drive an existing pipeline + the frame-callback chain to match
@@ -1645,4 +1652,66 @@ impl ProvidesRegistryState for WallpaperRenderer {
         &mut self.registry_state
     }
     registry_handlers![OutputState, SeatState];
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ap(covered: bool, on_battery: bool) -> AutoPause {
+        AutoPause {
+            covered,
+            on_battery,
+        }
+    }
+
+    #[test]
+    fn autopause_any_is_or_of_reasons() {
+        assert!(!ap(false, false).any());
+        assert!(ap(true, false).any());
+        assert!(ap(false, true).any());
+        assert!(ap(true, true).any());
+    }
+
+    #[test]
+    fn plays_only_when_playing_intent_and_no_autopause() {
+        assert!(should_play(UserIntent::Playing, ap(false, false)));
+        assert!(!should_play(UserIntent::Paused, ap(false, false)));
+        assert!(!should_play(UserIntent::Stopped, ap(false, false)));
+    }
+
+    #[test]
+    fn any_autopause_reason_overrides_play_intent() {
+        // A fullscreen/maximized window, on-battery, or both must stop playback
+        // even when the user intends to play.
+        assert!(!should_play(UserIntent::Playing, ap(true, false)));
+        assert!(!should_play(UserIntent::Playing, ap(false, true)));
+        assert!(!should_play(UserIntent::Playing, ap(true, true)));
+    }
+
+    #[test]
+    fn manual_pause_holds_when_autopause_clears() {
+        // Manual pause takes precedence: clearing every auto-pause reason must
+        // not resume a user-paused or user-stopped wallpaper.
+        assert!(!should_play(UserIntent::Paused, ap(false, false)));
+        assert!(!should_play(UserIntent::Stopped, ap(false, false)));
+    }
+
+    #[test]
+    fn fit_mode_str_roundtrip() {
+        for (s, m) in [
+            ("zoom", FitMode::Zoom),
+            ("fit", FitMode::Fit),
+            ("stretch", FitMode::Stretch),
+        ] {
+            assert_eq!(FitMode::from_str(s), m);
+            assert_eq!(m.as_str(), s);
+        }
+    }
+
+    #[test]
+    fn fit_mode_unknown_defaults_to_zoom() {
+        assert_eq!(FitMode::from_str("bogus"), FitMode::Zoom);
+        assert_eq!(FitMode::from_str(""), FitMode::Zoom);
+    }
 }

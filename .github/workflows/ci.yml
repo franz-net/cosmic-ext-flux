@@ -1,0 +1,54 @@
+name: CI
+
+# Validates every push to main and every pull request, so build/test
+# breakage is caught before merge (not only when a release tag is pushed).
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgstreamer1.0-dev \
+            libgstreamer-plugins-base1.0-dev \
+            libwayland-dev \
+            libxkbcommon-dev \
+            libglib2.0-dev \
+            pkg-config
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: clippy
+
+      - name: Cache cargo registry and build
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-ci-${{ hashFiles('**/Cargo.lock') }}
+
+      # --- Blocking gates: these must pass to merge ---
+      - name: Build (workspace, all targets)
+        run: cargo build --workspace --all-targets --locked
+
+      - name: Test
+        run: cargo test --workspace --locked
+
+      # --- Advisory: surfaces lint feedback that can't be run locally without
+      # rustup. Does not block merge yet; promote to a blocking gate (add
+      # `-- -D warnings`) once the codebase is clippy-clean. ---
+      - name: Clippy (advisory)
+        continue-on-error: true
+        run: cargo clippy --workspace --all-targets
