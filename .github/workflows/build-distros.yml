@@ -1,0 +1,58 @@
+name: Build (distros)
+
+# Compiles the workspace on Arch and Fedora to catch source-build and
+# dependency breakage for non-Debian users (the .deb only covers Debian/Ubuntu;
+# see issues #11 Fedora and #15 Arch, where users build from source).
+#
+# Each job builds libcosmic from scratch (no cache), so this is intentionally
+# NOT a fast per-PR gate. It runs after merges to main — so distro breakage is
+# caught before a release is tagged — and on manual dispatch to pre-check a
+# branch. The `pull_request` trigger is included for now so this very change can
+# validate itself; once proven, dropping it keeps the ~20-minute cost off every
+# PR (push-to-main + manual dispatch is enough to catch breakage before release).
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.distro }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distro: arch
+            image: archlinux:latest
+          - distro: fedora
+            image: fedora:latest
+    container:
+      image: ${{ matrix.image }}
+    steps:
+      # git is installed first so actions/checkout can use it inside the
+      # minimal container images.
+      - name: Install dependencies (Arch)
+        if: matrix.distro == 'arch'
+        run: |
+          pacman -Syu --noconfirm --needed \
+            rust gcc pkgconf git \
+            gstreamer gst-plugins-base \
+            wayland libxkbcommon glib2
+
+      - name: Install dependencies (Fedora)
+        if: matrix.distro == 'fedora'
+        run: |
+          dnf install -y \
+            rust cargo gcc pkgconf-pkg-config git \
+            gstreamer1-devel gstreamer1-plugins-base-devel \
+            wayland-devel libxkbcommon-devel glib2-devel
+
+      - uses: actions/checkout@v6
+
+      - name: Toolchain versions
+        run: cargo --version && rustc --version
+
+      - name: Build workspace
+        run: cargo build --workspace --locked
