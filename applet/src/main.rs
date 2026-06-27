@@ -6,6 +6,18 @@ mod dbus_client;
 mod i18n;
 
 fn main() -> cosmic::iced::Result {
+    // The applet had no log subscriber, so its tracing went nowhere. Install a
+    // quiet one (warn) that RUST_LOG can turn up — e.g. `just install-debug`
+    // runs the applet with RUST_LOG=...debug + WAYLAND_DEBUG=1 to capture the
+    // popup lifecycle and the raw Wayland protocol trace for crash diagnosis.
+    // try_init so we don't conflict if libcosmic installs its own subscriber.
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("warn")),
+        )
+        .try_init();
+
     migrate_legacy_config();
     let requested_languages = i18n_embed::DesktopLanguageRequester::requested_languages();
     i18n::init(&requested_languages);

@@ -35,6 +35,17 @@ install: build-release
         ~/.config/systemd/user/cosmic-ext-flux-daemon.service
     systemctl --user daemon-reload
 
+# For diagnosing the applet popup crash. After running: remove and re-add the
+# Flux applet on the panel (so it relaunches), reproduce the crash, then collect:
+#   journalctl --user -b --no-pager | grep -iE 'flux|xdg_surface|xdg_popup' > flux-debug.log
+# Run `just install` again afterward to return to a normal (quiet) applet.
+# Like `install` but runs the applet under WAYLAND_DEBUG=1 + RUST_LOG=debug.
+install-debug: install
+    sed -i "s|^Exec=|Exec=env WAYLAND_DEBUG=1 RUST_LOG=cosmic_ext_applet_flux=debug |" \
+        ~/.local/share/applications/io.github.franz_net.CosmicExtAppletFlux.desktop
+    @echo "Debug applet installed. Remove + re-add the Flux applet on the panel, reproduce,"
+    @echo "then: journalctl --user -b --no-pager | grep -iE 'flux|xdg_surface|xdg_popup' > flux-debug.log"
+
 # Remove a local user install (does not touch a system .deb).
 uninstall:
     rm -f ~/.local/bin/cosmic-ext-flux-daemon \

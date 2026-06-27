@@ -124,6 +124,12 @@ impl cosmic::Application for AppModel {
 
     // Popup window contents
     fn view_window(&self, _id: Id) -> Element<'_, Message> {
+        tracing::debug!(
+            "view_window: rendering popup (playing={}, available={}, fps_auto={})",
+            self.daemon_playing,
+            self.daemon_available,
+            self.config.fps_cap == 0
+        );
         // File picker row
         let source_label = if self.config.source_path.is_empty() {
             fl!("no-file-selected")
@@ -296,12 +302,15 @@ impl cosmic::Application for AppModel {
         match message {
             Message::TogglePopup => {
                 return if let Some(p) = self.popup.take() {
+                    tracing::debug!("TogglePopup: destroying popup {p:?}");
                     destroy_popup(p)
                 } else {
                     let Some(main_id) = self.core.main_window_id() else {
+                        tracing::debug!("TogglePopup: no main window id, ignoring");
                         return Task::none();
                     };
                     let new_id = Id::unique();
+                    tracing::debug!("TogglePopup: creating popup {new_id:?}");
                     self.popup.replace(new_id);
                     let mut popup_settings = self.core.applet.get_popup_settings(
                         main_id,
@@ -322,6 +331,7 @@ impl cosmic::Application for AppModel {
                 };
             }
             Message::PopupClosed(id) => {
+                tracing::debug!("PopupClosed({id:?}) (current popup: {:?})", self.popup);
                 if self.popup.as_ref() == Some(&id) {
                     self.popup = None;
                 }
@@ -331,6 +341,18 @@ impl cosmic::Application for AppModel {
                 self.config = config;
             }
             Message::DaemonState { playing, error, cpu, memory, fps, source_fps } => {
+                // A change in `playing`/`available` adds or removes popup rows
+                // (stats / start-daemon), which resizes an open popup — log it
+                // so a crash can be correlated with a content-height change.
+                if (playing != self.daemon_playing || !self.daemon_available)
+                    && self.popup.is_some()
+                {
+                    tracing::debug!(
+                        "DaemonState changed while popup open (playing {} -> {}); popup will resize",
+                        self.daemon_playing,
+                        playing
+                    );
+                }
                 self.daemon_playing = playing;
                 self.daemon_error = error.map(|e| {
                     if e.len() > 256 {
