@@ -4,12 +4,10 @@ name: Build (distros)
 # dependency breakage for non-Debian users (the .deb only covers Debian/Ubuntu;
 # see issues #11 Fedora and #15 Arch, where users build from source).
 #
-# Each job builds libcosmic from scratch (no cache), so this is intentionally
-# NOT a fast per-PR gate. It runs after merges to main — so distro breakage is
-# caught before a release is tagged — and on manual dispatch to pre-check a
-# branch. The `pull_request` trigger is included for now so this very change can
-# validate itself; once proven, dropping it keeps the ~20-minute cost off every
-# PR (push-to-main + manual dispatch is enough to catch breakage before release).
+# Each job builds the whole workspace (including libcosmic) from scratch with no
+# cache, but a debug build on GitHub's runners is quick — ~3-4 min per distro,
+# run in parallel — so it's cheap enough to run on every PR as well as on pushes
+# to main and on manual dispatch. Catches distro breakage before a release tag.
 on:
   push:
     branches: [main]
