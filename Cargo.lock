@@ -1047,6 +1047,7 @@ dependencies = [
  "rust-embed",
  "tokio",
  "tracing",
+ "tracing-subscriber",
  "zbus 5.14.0",
 ]
 
