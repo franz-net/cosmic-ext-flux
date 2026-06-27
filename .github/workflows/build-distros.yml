@@ -1,0 +1,56 @@
+name: Build (distros)
+
+# Compiles the workspace on Arch and Fedora to catch source-build and
+# dependency breakage for non-Debian users (the .deb only covers Debian/Ubuntu;
+# see issues #11 Fedora and #15 Arch, where users build from source).
+#
+# Each job builds the whole workspace (including libcosmic) from scratch with no
+# cache, but a debug build on GitHub's runners is quick — ~3-4 min per distro,
+# run in parallel — so it's cheap enough to run on every PR as well as on pushes
+# to main and on manual dispatch. Catches distro breakage before a release tag.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.distro }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distro: arch
+            image: archlinux:latest
+          - distro: fedora
+            image: fedora:latest
+    container:
+      image: ${{ matrix.image }}
+    steps:
+      # git is installed first so actions/checkout can use it inside the
+      # minimal container images.
+      - name: Install dependencies (Arch)
+        if: matrix.distro == 'arch'
+        run: |
+          pacman -Syu --noconfirm --needed \
+            rust gcc pkgconf git \
+            gstreamer gst-plugins-base \
+            wayland libxkbcommon glib2
+
+      - name: Install dependencies (Fedora)
+        if: matrix.distro == 'fedora'
+        run: |
+          dnf install -y \
+            rust cargo gcc pkgconf-pkg-config git \
+            gstreamer1-devel gstreamer1-plugins-base-devel \
+            wayland-devel libxkbcommon-devel glib2-devel
+
+      - uses: actions/checkout@v6
+
+      - name: Toolchain versions
+        run: cargo --version && rustc --version
+
+      - name: Build workspace
+        run: cargo build --workspace --locked
