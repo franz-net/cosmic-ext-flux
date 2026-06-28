@@ -4,7 +4,8 @@ use crate::config::Config;
 use crate::fl;
 use ashpd::desktop::file_chooser::{FileFilter, SelectedFiles};
 use cosmic::cosmic_config::{self, CosmicConfigEntry};
-use cosmic::iced::{window::Id, Limits, Subscription};
+use cosmic::iced::widget::rule;
+use cosmic::iced::{window::Id, Alignment, Length, Limits, Subscription, alignment};
 use cosmic::surface::action::{app_popup, destroy_popup};
 use cosmic::prelude::*;
 use cosmic::widget;
@@ -247,11 +248,44 @@ impl cosmic::Application for AppModel {
 
         // Show performance stats when playing
         if self.daemon_playing {
-            let stats_text = format!(
-                "CPU: {:.0}%  |  RAM: {:.0} MB  |  FPS: {:.0}",
-                self.daemon_cpu, self.daemon_memory, self.daemon_fps
-            );
-            content = content.add(widget::text::body(stats_text));
+            // Three equal-width, center-aligned columns (CPU | RAM | FPS)
+            // separated by short vertical rules.
+            let cpu_part = widget::container(widget::text(format!("CPU: {:.0}%", self.daemon_cpu)))
+                .width(Length::Fill)
+                .align_x(alignment::Horizontal::Center)
+                .align_y(alignment::Vertical::Center);
+
+            let ram_part =
+                widget::container(widget::text(format!("RAM: {:.0} MB", self.daemon_memory)))
+                    .width(Length::Fill)
+                    .align_x(alignment::Horizontal::Center)
+                    .align_y(alignment::Vertical::Center);
+
+            let fps_part = widget::container(widget::text(format!("FPS: {:.0}", self.daemon_fps)))
+                .width(Length::Fill)
+                .align_x(alignment::Horizontal::Center)
+                .align_y(alignment::Vertical::Center);
+
+            // Cap each divider to a fixed height so it reads as a clean tick
+            // between the columns rather than a full-height line.
+            let divider_1: widget::Container<'_, Message, Theme> =
+                widget::container(rule::vertical(1))
+                    .height(Length::Fixed(16.0))
+                    .align_x(alignment::Horizontal::Center)
+                    .align_y(alignment::Vertical::Center);
+
+            let divider_2 = widget::container(rule::vertical(1))
+                .height(Length::Fixed(16.0))
+                .align_x(alignment::Horizontal::Center)
+                .align_y(alignment::Vertical::Center);
+
+            let stats_row = widget::row![cpu_part, divider_1, ram_part, divider_2, fps_part,]
+                .spacing(5)
+                .align_y(Alignment::Center);
+
+            let stats_container = widget::container(stats_row).width(Length::Fill).padding(10);
+
+            content = content.add(stats_container);
         }
 
         if let Some(err) = &self.daemon_error {
