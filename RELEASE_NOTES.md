@@ -3,10 +3,11 @@
 
 ## Highlights
 
-- **New: optionally pause on battery power.** Save laptop battery by automatically pausing the wallpaper while you're on battery, resuming when you plug back in. **Opt-in** — enable **"Pause on battery power"** in the applet popup (off by default). The daemon reads the on-battery state from UPower; on systems without UPower it simply does nothing. (#1)
-- **Fixed: applet could crash when opening its popup.** The added setting pushed the popup past its height limit and tripped a Wayland surface error; the popup now fits all its rows.
+This is a bug-fix release. **If the Flux applet crashed when you opened its popup on v3.1.0 or earlier, update to v3.1.1.**
 
-Both auto-pause conditions from v3.0 (a fullscreen/maximized window, and now on-battery) share one rule: a manual pause always wins, and the wallpaper only plays when you want it to and nothing is asking it to pause.
+- **Fixed: applet popup crash on some systems (#15).** On certain hardware the applet would die the moment its popup opened, with a Wayland `xdg_surface` "unconfigured_buffer" protocol error — and it happened *regardless* of popup size, so the v3.1.0 height fix didn't cover these users. The real cause was an upstream bug in the pinned `libcosmic` version. This release updates `libcosmic` to a revision that fixes it, with no change to how the applet works.
+
+There are no other behaviour changes from v3.1.0.
 
 ## Install
 

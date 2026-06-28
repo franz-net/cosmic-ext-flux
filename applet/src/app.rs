@@ -5,7 +5,7 @@ use crate::fl;
 use ashpd::desktop::file_chooser::{FileFilter, SelectedFiles};
 use cosmic::cosmic_config::{self, CosmicConfigEntry};
 use cosmic::iced::{window::Id, Limits, Subscription};
-use cosmic::iced_winit::commands::popup::{destroy_popup, get_popup};
+use cosmic::surface::action::{app_popup, destroy_popup};
 use cosmic::prelude::*;
 use cosmic::widget;
 use futures_util::SinkExt;
@@ -178,8 +178,6 @@ impl cosmic::Application for AppModel {
         );
 
         let mut content = widget::list_column()
-            .padding(5)
-            .spacing(0)
             .add(file_row)
             .add(playback_row);
 
@@ -277,9 +275,9 @@ impl cosmic::Application for AppModel {
             self.core()
                 .watch_config::<Config>(APP_ID)
                 .map(|update| Message::UpdateConfig(update.config)),
-            Subscription::run_with_id(
+            Subscription::run_with(
                 std::any::TypeId::of::<DaemonPoll>(),
-                cosmic::iced::stream::channel(4, move |mut sender| async move {
+                |_: &std::any::TypeId| cosmic::iced::stream::channel::<Message>(4, move |mut sender: cosmic::iced::futures::channel::mpsc::Sender<Message>| async move {
                     loop {
                         match poll_daemon_state().await {
                             Ok((playing, error, cpu, memory, fps, source_fps)) => {
@@ -301,34 +299,43 @@ impl cosmic::Application for AppModel {
     fn update(&mut self, message: Message) -> Task<cosmic::Action<Message>> {
         match message {
             Message::TogglePopup => {
-                return if let Some(p) = self.popup.take() {
+                let action = if let Some(p) = self.popup.take() {
                     tracing::debug!("TogglePopup: destroying popup {p:?}");
                     destroy_popup(p)
                 } else {
-                    let Some(main_id) = self.core.main_window_id() else {
-                        tracing::debug!("TogglePopup: no main window id, ignoring");
-                        return Task::none();
-                    };
-                    let new_id = Id::unique();
-                    tracing::debug!("TogglePopup: creating popup {new_id:?}");
-                    self.popup.replace(new_id);
-                    let mut popup_settings = self.core.applet.get_popup_settings(
-                        main_id,
-                        new_id,
-                        None,
-                        None,
-                        None,
-                    );
-                    popup_settings.positioner.size_limits = Limits::NONE
-                        .max_width(372.0)
-                        .min_width(300.0)
-                        .min_height(200.0)
-                        // Headroom for the full set of rows; a too-low ceiling
-                        // makes the popup overflow and the surface races on
-                        // configure (xdg_surface unconfigured_buffer crash).
-                        .max_height(900.0);
-                    get_popup(popup_settings)
+                    tracing::debug!("TogglePopup: creating popup");
+                    app_popup::<AppModel>(
+                        |state: &mut AppModel| {
+                            let main_id =
+                                state.core.main_window_id().unwrap_or(Id::NONE);
+                            let new_id = Id::unique();
+                            state.popup = Some(new_id);
+                            let mut popup_settings = state.core.applet.get_popup_settings(
+                                main_id,
+                                new_id,
+                                None,
+                                None,
+                                None,
+                            );
+                            popup_settings.positioner.size_limits = Limits::NONE
+                                .max_width(372.0)
+                                .min_width(300.0)
+                                .min_height(200.0)
+                                // Headroom for the full set of rows; a too-low
+                                // ceiling makes the popup overflow and the surface
+                                // races on configure (xdg_surface
+                                // unconfigured_buffer crash).
+                                .max_height(900.0);
+                            popup_settings
+                        },
+                        Some(Box::new(|state: &AppModel| {
+                            state.view_window(Id::NONE).map(cosmic::Action::App)
+                        })),
+                    )
                 };
+                return cosmic::task::message(cosmic::Action::Cosmic(
+                    cosmic::app::Action::Surface(action),
+                ));
             }
             Message::PopupClosed(id) => {
                 tracing::debug!("PopupClosed({id:?}) (current popup: {:?})", self.popup);
@@ -505,7 +512,7 @@ impl cosmic::Application for AppModel {
         Task::none()
     }
 
-    fn style(&self) -> Option<cosmic::iced_runtime::Appearance> {
+    fn style(&self) -> Option<cosmic::iced::theme::Style> {
         Some(cosmic::applet::style())
     }
 }
