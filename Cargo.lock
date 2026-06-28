@@ -954,7 +954,7 @@ dependencies = [
 
 [[package]]
 name = "cosmic-ext-applet-flux"
-version = "3.1.0"
+version = "3.1.1"
 dependencies = [
  "anyhow",
  "ashpd 0.12.3",
@@ -971,7 +971,7 @@ dependencies = [
 
 [[package]]
 name = "cosmic-ext-flux-daemon"
-version = "3.1.0"
+version = "3.1.1"
 dependencies = [
  "anyhow",
  "cosmic-client-toolkit 0.1.0",
