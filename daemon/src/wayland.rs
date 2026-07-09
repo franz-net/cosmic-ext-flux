@@ -1002,10 +1002,35 @@ impl WallpaperRenderer {
             .toplevel_info
             .as_ref()
             .map(|ti| {
-                ti.toplevels().any(|t| {
-                    (pause_on_fullscreen && t.state.contains(&ToplevelState::Fullscreen))
-                        || (pause_on_maximized && t.state.contains(&ToplevelState::Maximized))
-                })
+                // Diagnostic: log exactly what the compositor reports for each
+                // toplevel. Auto-pause is only as good as the fullscreen/maximized
+                // state the compositor advertises over cosmic-toplevel-info; some
+                // (esp. dev) cosmic-comp builds under- or over-report it (issue #21).
+                // Enable with `RUST_LOG=cosmic_ext_flux_daemon=debug`.
+                let mut count = 0usize;
+                let mut covered = false;
+                for t in ti.toplevels() {
+                    count += 1;
+                    let is_fullscreen = t.state.contains(&ToplevelState::Fullscreen);
+                    let is_maximized = t.state.contains(&ToplevelState::Maximized);
+                    tracing::debug!(
+                        "toplevel app_id={:?} title={:?} fullscreen={} maximized={}",
+                        t.app_id,
+                        t.title,
+                        is_fullscreen,
+                        is_maximized
+                    );
+                    if (pause_on_fullscreen && is_fullscreen)
+                        || (pause_on_maximized && is_maximized)
+                    {
+                        covered = true;
+                    }
+                }
+                tracing::debug!(
+                    "update_window_pause: {count} toplevel(s), covered={covered} \
+                     (pause_on_fullscreen={pause_on_fullscreen}, pause_on_maximized={pause_on_maximized})"
+                );
+                covered
             })
             .unwrap_or(false);
         if covered != self.auto_pause.covered {
